@@ -1,21 +1,35 @@
-// api/send.js
+// api/send.js - FIXED VERSION
 export default async function handler(req, res) {
-  // Hanya terima POST request
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
+  // Set CORS headers agar bisa diakses dari StackBlitz via proxy
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
+  // Handle preflight request
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
   }
 
-  const { message } = req.body;
-  
-  // Ambil token dari Environment Variable (JANGAN HARD-CODE DI SINI!)
-  const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
-  const CHAT_ID = process.env.TELEGRAM_CHAT_ID;
-
-  if (!BOT_TOKEN || !CHAT_ID) {
-    return res.status(500).json({ error: 'Missing configuration' });
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Only POST allowed' });
   }
 
   try {
+    // Parse body secara aman
+    const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
+    const { message } = body || {};
+    
+    const BOT_TOKEN = process.env.TG_TOKEN;
+    const CHAT_ID = process.env.TG_CHAT_ID;
+
+    if (!BOT_TOKEN || !CHAT_ID) {
+      return res.status(500).json({ error: 'Missing TG_TOKEN or TG_CHAT_ID in env vars' });
+    }
+
+    if (!message) {
+      return res.status(400).json({ error: 'Missing message in request body' });
+    }
+
     const response = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -34,6 +48,7 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: data.description });
     }
   } catch (error) {
+    console.error('Handler error:', error);
     return res.status(500).json({ error: error.message });
   }
 }
